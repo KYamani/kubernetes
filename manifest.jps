@@ -130,7 +130,7 @@ onBeforeInstall: |
     var path = "/data";
     resp.nodes.push({
       count: 1,
-      image: "jelastic/storage",
+      nodeType: "storage",
       cloudlets: 8,
       displayName: "Storage",
       nodeGroup: "storage",
