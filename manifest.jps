@@ -13,7 +13,7 @@ logo: /images/k8s-logo.png
 name: Kubernetes Cluster
 targetRegions:
   type: vz7
-
+  
 settings:
   fields:  
     - name: deploy
@@ -64,15 +64,12 @@ settings:
         v1.14.2: v1.14.2
         v1.14.3: v1.14.3
         v1.15.0: v1.15.0
+        v1.15.1: v1.15.1
       default: v1.15.0
 
 ssl: true
 
 onBeforeInstall: |
-  var url = "https://registry.hub.docker.com/v1/repositories/jelastic/kubernetes/tags",
-    tags = toNative(new com.hivext.api.core.utils.Transport().get(url)).sort(),
-    latest = "latest";
-  for (var i = 0; i < tags.length; i++) if (tags[i].name > latest) latest = tags[i].name;
   var k8smCount = '${settings.topo}' == '0-dev' ? 1 : 3,
       workerCount = k8smCount > 1 ? 2 : 1, 
       tag = "${settings.version}";
@@ -386,7 +383,17 @@ actions:
               var message = "Current version " + version + " is the latest. No upgrades are available.";
               if (upgrades.length) {
                 upgrades.sort();
-                return {result:0, onAfterReturn:{execUpgrade:{current:version, next:upgrades.shift(), avail:upgrades.join(", ")}}};
+                var next = upgrades.shift();                               
+                var url = "${baseUrl}/../"+next+"/addons/upgrade.jps";
+                var huc = new java.net.URL(url).openConnection();
+                huc.setRequestMethod("HEAD");
+                var code = huc.getResponseCode();
+                if (code == 200){
+                  return {result:0, onAfterReturn:{execUpgrade:{current:version, next:next, avail:upgrades.join(", "), jps: url}}};
+                } else {
+                  message = "The next version is " + next + ". However, automated upgrade procedure is not available yet. Please check it later, or contact support team if upgrade is required urgently.";
+                  return {result:"info", message:message};
+                }                                                                
               } else {
                 return {result:"info", message:message};
               }
