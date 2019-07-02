@@ -398,55 +398,11 @@ actions:
                 return {result:"info", message:message};
               }
 
-          upgrade-masters:
-            - env.control.RedeployContainers:
-                nodeId: ${this.id}
-                tag: ${this.version}
-                skipReinstall: true
-            - if (${this.master}):
-                - cmd[${this.id}]: |-
-                    /usr/bin/kubeadm upgrade plan --ignore-preflight-errors=swap || exit 1
-                    /usr/bin/kubeadm upgrade apply ${this.version} || exit 1
-                    service kubelet restart
-            - if (!${this.master}):
-                - cmd[${this.id}]: |-
-                    /usr/bin/kubeadm upgrade node experimental-control-plane ${this.version}  || exit 2
-                    service kubelet restart
-                    
-          upgrade-workers:
-            - cmd[${nodes.k8sm.master.id}]: |-
-                /usr/bin/kubectl drain ${this.hostname} --ignore-daemonsets --delete-local-data || exit 3
-            - env.control.RedeployContainers:
-                nodeId: ${this.id}
-                tag: ${this.version}
-                skipReinstall: true
-            - cmd[${this.id}]: |-
-                /usr/bin/kubeadm upgrade node config --kubelet-version ${this.version}  || exit 4
-                service kubelet restart
-            - cmd[${nodes.k8sm.master.id}]: |-
-                /usr/bin/kubectl uncordon ${this.hostname} || exit 5
-                while true; do kubectl get pods --field-selector=status.phase=Pending -n kube-system | grep -q Pending || break ; done
-
           execUpgrade:
-            - upgrade-masters:
-                id: ${nodes.k8sm.master.id}
-                master: true
-                version: ${this.next}
-            - forEach(nodes.k8sm):
-                if (!${@i.ismaster}):
-                  upgrade-masters:
-                    id: ${@i.id}
-                    master: false
-                    version: ${this.next}
-            - forEach(nodes.cp):
-                upgrade-workers:
-                  id: ${@i.id}
-                  hostname: node${@i.id}-${env.domain}
-                  version: ${this.next}
-            - script: |
-                var message = "Kubernetes Cluster has been successfuly upgraded! **Current version:** ${this.next}.  \n\nNo other upgrades are available.";
-                if ("${this.avail}") message += "\n\n**Next version:** ${this.avail}.  \nPress \"Upgrade\" button to start the upgrade process.";
-                return {result:"info", message:message};
+            install: {this.jps}
+            settings:
+                version: {this.next}
+                
 
           remoteApi:
             cmd[${nodes.k8sm.master.id}]: |-
